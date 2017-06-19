@@ -1,0 +1,19 @@
+{
+  "name": "InciwebSlackCommand",
+  "version": "1.0.0",
+  "description": "Slack command to check on Inciweb wildfire incidents (new starts or updates from the RSS feeds).",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "John Agan <jagan@slack-corp.com>",
+  "dependencies": {
+    "axios": "^0.13.1",
+    "ws": "^1.1.1",
+    "request": "2.72.0",
+    "mongodb": "*",
+    "synchronize": "^0.9.14",
+    "httpdispatcher": "*",
+    "feed-read": "^0.0.1",
+    "moment": "^2.18.1"
+  }
+}
