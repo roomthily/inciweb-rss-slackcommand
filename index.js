@@ -4,7 +4,8 @@ const ts = require('./tinyspeck.js'),
       feed = require("feed-read"),
       moment = require('moment'),
       keys = require('object-keys'),
-      values = require('object.values');
+      values = require('object.values'),
+      entries = require('object.entries');
 
 var slack = ts.instance({ });
 
@@ -53,7 +54,7 @@ slack.on('/inciweb', payload => {
     
     console.log('recents: ', recent_items.length);
     
-    var limit = Math.min(max_items, recent_items.length);
+    var limit = Math.min(requested_items, recent_items.length);
     
     // for a concise slackiness
     // we want the title, the date, the link to the 
@@ -61,7 +62,7 @@ slack.on('/inciweb', payload => {
     // info from the text.
     // if not acreage/containment, then idk???
     
-    recent_items.slice(0, limit-1).map((d) => {
+    recent_items.slice(0, limit).map((d) => {
       attachments.push({
         "fallback": d.title,
         "title_link": d.link,
@@ -119,7 +120,6 @@ function _get_rss_url(state=undefined) {
 }
 
 function _get_feed(url, callback) {
-  console.log(url);
   feed(url, function(err, articles) {
     if (err) throw err;
     if (articles.length < 1) {
@@ -136,13 +136,24 @@ function _get_feed(url, callback) {
 function _parse_description(desc) {
   // get the acres and containment
   // returning as slack-structured fields
-  var acreage_rx = /Acres: ([\s\S]*) acres/g;
-  // may also be Size: x acres
-  // or inline X acres
+  
+  // can be tagged as Acreage or Size of inline text (not included in 
+  // this list - inline may not refer to the fire perimeter area)
+  var acreage_rx = [/Acres: ([\s\S]*) acres/g, /Size: ([\s\S]*) acres/g];
   
   var contain_rx = /Containment: ([\s\S]*)%/g;
   
-  var acreage = desc.match(acreage_rx);
+  // TODO: these regex matches occasionally grab too much.
+  
+  var acreage = null;
+  for (var i=0; i < acreage_rx.length; i++) {
+    var ac = desc.match(acreage_rx[i]);
+    if (ac != null) {
+      acreage = ac;
+      break;
+    }
+  }
+      
   var containment = desc.match(contain_rx);
   
   var attachments = [];
@@ -167,17 +178,21 @@ function _parse_description(desc) {
 }
 
 function _get_state(state) {
+  if (state == undefined) {
+    return;
+  }
   var the_key = '';
   if (keys(states).includes(state.toLowerCase())) {
     the_key = state.toLowerCase();
   }
   if (values(states).includes(state.toUpperCase())) {
-    for (key in keys(states)) {
-      if (states[key] == state.toUpperCase()) {
-        the_key = key;
+    for (let [k,v] of entries(states)) {
+      if (v == state.toUpperCase()) {
+        the_key = k;
         break;
       }
     }
+
   }
   
   return keys(states).sort().indexOf(the_key) + 1;
@@ -239,26 +254,8 @@ var states = {
   "wyoming": "WY"
 }
 
+// the inciweb state select object for reference:
 // <select name="state_id" id="state_id" class="select_width" tabindex="2"><option value="" selected="selected">state</option><option value="1">ALABAMA</option><option value="2">ALASKA</option><option value="3">ARIZONA</option><option value="4">ARKANSAS</option><option value="5">CALIFORNIA</option><option value="6">COLORADO</option><option value="7">CONNECTICUT</option><option value="8">DELAWARE</option><option value="9">DISTRICT OF COLUMBIA</option><option value="10">FLORIDA</option><option value="11">GEORGIA</option><option value="12">HAWAII</option><option value="13">IDAHO</option><option value="14">ILLINOIS</option><option value="15">INDIANA</option><option value="16">IOWA</option><option value="17">KANSAS</option><option value="18">KENTUCKY</option><option value="19">LOUISIANA</option><option value="20">MAINE</option><option value="21">MARYLAND</option><option value="22">MASSACHUSETTS</option><option value="23">MICHIGAN</option><option value="24">MINNESOTA</option><option value="25">MISSISSIPPI</option><option value="26">MISSOURI</option><option value="27">MONTANA</option><option value="28">NEBRASKA</option><option value="29">NEVADA</option><option value="30">NEW HAMPSHIRE</option><option value="31">NEW JERSEY</option><option value="32">NEW MEXICO</option><option value="33">NEW YORK</option><option value="34">NORTH CAROLINA</option><option value="35">NORTH DAKOTA</option><option value="36">OHIO</option><option value="37">OKLAHOMA</option><option value="38">OREGON</option><option value="39">PENNSYLVANIA</option><option value="40">PUERTO RICO</option><option value="41">RHODE ISLAND</option><option value="42">SOUTH CAROLINA</option><option value="43">SOUTH DAKOTA</option><option value="44">TENNESSEE</option><option value="45">TEXAS</option><option value="46">UTAH</option><option value="47">VERMONT</option><option value="48">VIRGINIA</option><option value="49">WASHINGTON</option><option value="50">WEST VIRGINIA</option><option value="51">WISCONSIN</option><option value="52">WYOMING</option></select>
-
-    
-// function getMessage(userRef, count) {
-//   if(!count){ // no value stored for this user
-//     count=1;
-//     datastore.set(userRef, count).then(function() { // store initial count value for user
-//       console.log("Saved initial count ("+count+") for: " + userRef);
-//     });
-//   } else { // there was a value stored
-//     count++;
-//     datastore.set(userRef, count).then(function() { // store updated count value for user
-//       console.log("Saved updated count ("+count+") for: " + userRef);
-//     });
-//   }
-//   return Object.assign({ channel: userRef, text: "Current count is: " + count });
-// }
-
-
-
     
 // incoming http requests
 slack.listen('3000');
