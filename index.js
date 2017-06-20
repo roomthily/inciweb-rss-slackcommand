@@ -2,30 +2,37 @@
 
 const ts = require('./tinyspeck.js'),
       feed = require("feed-read"),
-      moment = require('moment');
+      moment = require('moment'),
+      keys = require('object-keys'),
+      values = require('object.values');
 
 var slack = ts.instance({ });
-var connected=false;
 
-//
-// For each Slash Command that you want to handle, you need to add a new `slack.on()` handler function for it.
-// This handler captures when that particular Slash Command has been used and the resulting HTTP request fired
-// to your endpoint. You can then run whatever code you need to for your use-case. 
-//
-// The `slack` functions like `on()` and `send()` are provided by `tinyspeck.js`. 
-//
-// Watch for /count slash command
 slack.on('/inciweb', payload => {
   console.log("Received /count slash command from user " + payload.user_id);
   let user_id = payload.user_id;
   let response_url = payload.response_url;
   
+  // parse the request for count and/or state identifier:
+  //  {number} recent fires?
+  //  any recent fires?
+  //  {number} recent fires in {state}?
+  //  any recent fires in {state}?
+
+  // request to the bot
   let text = payload.text;
   
-  // get the rss url
-  // TODO: GET STATE
-  var url = _get_rss_url();
+  // the upper limit for the response
+  var max_items = 10;
   
+  var requested_items = _get_requested_num(text, max_items);
+  var requested_state = _get_state(_get_requested_state(text));
+  
+  console.log('requested number: ', requested_items);
+  console.log('requested state: ', requested_state);
+  
+  // get the rss url
+  var url = _get_rss_url(requested_state);
   
   let message = "Current fire information from Inciweb";
   
@@ -46,7 +53,7 @@ slack.on('/inciweb', payload => {
     
     console.log('recents: ', recent_items.length);
     
-    var limit = Math.min(5, recent_items.length);
+    var limit = Math.min(max_items, recent_items.length);
     
     // for a concise slackiness
     // we want the title, the date, the link to the 
@@ -54,7 +61,7 @@ slack.on('/inciweb', payload => {
     // info from the text.
     // if not acreage/containment, then idk???
     
-    recent_items.slice(0, limit).map((d) => {
+    recent_items.slice(0, limit-1).map((d) => {
       attachments.push({
         "fallback": d.title,
         "title_link": d.link,
@@ -63,7 +70,6 @@ slack.on('/inciweb', payload => {
         "fields": _parse_description(d.content)
       });
     });
-    console.log('do i have stuffs?', attachments.length);
     
     // send the stuff
     let response = Object.assign({ channel: user_id, text: message, attachments: attachments });
@@ -75,6 +81,29 @@ slack.on('/inciweb', payload => {
   });
       
 });
+
+function _get_requested_num(text, limit) {
+  // whatever is before "recent fires?
+  var check = text.slice(0, text.toLowerCase().indexOf('recent')).trim();
+  
+  var numbers = /^[0-9]+/;
+  if (check.match(numbers)) {
+    console.log('found number: ', check);
+    return Math.min(parseInt(check), limit);
+  } else {
+    // not a number, run with the default limit
+    return limit;
+  }
+}
+
+function _get_requested_state(text) {
+  // following "recent fires in X?
+  if (text.endsWith('fires?')) {
+    return;
+  }
+  
+  return text.slice(text.indexOf('in ')+3).replace('?', '').trim();
+}
 
 function _get_rss_url(state=undefined) {
   // for a state:
@@ -90,6 +119,7 @@ function _get_rss_url(state=undefined) {
 }
 
 function _get_feed(url, callback) {
+  console.log(url);
   feed(url, function(err, articles) {
     if (err) throw err;
     if (articles.length < 1) {
@@ -99,7 +129,6 @@ function _get_feed(url, callback) {
 
     // pass the bits back for the cards & bot response
     // fxn(err, data)
-    console.log('stuff to callback');
     return callback(null, articles);
   });
 }
@@ -108,40 +137,50 @@ function _parse_description(desc) {
   // get the acres and containment
   // returning as slack-structured fields
   var acreage_rx = /Acres: ([\s\S]*) acres/g;
+  // may also be Size: x acres
+  // or inline X acres
+  
   var contain_rx = /Containment: ([\s\S]*)%/g;
   
   var acreage = desc.match(acreage_rx);
   var containment = desc.match(contain_rx);
   
-  return [
-    {
+  var attachments = [];
+  
+  if (acreage != null) {
+    attachments.push({
       "title": "Acreage", 
-      "value": acreage != null ? acreage[0] : '❓', 
+      "value": acreage[0], 
       "short": true
-    },
-    {
+    });
+  }
+  if (containment != null) {
+    attachments.push({
       "title": "Containment", 
-      "value": containment != null ? containment[0] : '⚠️', 
+      "value": containment[0].replace('Containment:', ''), 
       "short": true
-    }
-  ];
+    });
+    console.log(containment);
+  }
+  
+  return attachments;
 }
 
 function _get_state(state) {
   var the_key = '';
-  if (states.keys().contains(state.lower())) {
-    the_key = state.lower();
+  if (keys(states).includes(state.toLowerCase())) {
+    the_key = state.toLowerCase();
   }
-  if (states.values().contains(state.upper())) {
-    for (key in states.keys()) {
-      if (states[key] == state.upper()) {
+  if (values(states).includes(state.toUpperCase())) {
+    for (key in keys(states)) {
+      if (states[key] == state.toUpperCase()) {
         the_key = key;
         break;
       }
     }
   }
   
-  return states.keys().sort().indexOf(the_key) + 1;
+  return keys(states).sort().indexOf(the_key) + 1;
 }
 
 // if sorted by keys then index+1 == the counter for inciweb
