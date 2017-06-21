@@ -1,6 +1,6 @@
 # Inciweb Slack Slash Command
 
-The slash command lets you ping the [Inciweb](https://inciweb.nwcg.gov/) Incidents RSS to see recent national or state-level wildfire updates. If the update includes acreage and containment stats, it will include those. Otherwise, it's fire names and links to the full Inciweb update. The slack response is limited to the last week of updates, as well.
+The slash command lets you ping the [Inciweb](https://inciweb.nwcg.gov/) Incidents RSS to see recent national or state-level wildfire updates. If the update includes acreage and containment stats, it will include those. Otherwise, it's fire names and links to the full Inciweb update. The slack response is limited to the last week of updates, as well. Very constrained by the RSS feed, fyi.
 
 ![Screenshot of the bot response](https://cdn.glitch.com/a8775a6f-cb53-454e-93a1-624531e17064%2Fgeneral___sparsile_Slack.png?1497918176388)
 
