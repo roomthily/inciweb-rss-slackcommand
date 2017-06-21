@@ -10,7 +10,7 @@ const ts = require('./tinyspeck.js'),
 var slack = ts.instance({ });
 
 slack.on('/inciweb', payload => {
-  console.log("Received /count slash command from user " + payload.user_id);
+  console.log("Received /inciweb slash command from user " + payload.user_id);
   let user_id = payload.user_id;
   let response_url = payload.response_url;
   
@@ -54,6 +54,15 @@ slack.on('/inciweb', payload => {
     
     console.log('recents: ', recent_items.length);
     
+    // add a count by title (ie # updates for this fire
+    // over the week)
+    var update_counts = recent_items.map((item) => {
+      return item.title;
+    }).reduce((counts, title) => {
+      counts[title] = counts[title] + 1 || 1;
+      return counts;
+    }, {});
+    
     var limit = Math.min(requested_items, recent_items.length);
     
     // for a concise slackiness
@@ -63,12 +72,23 @@ slack.on('/inciweb', payload => {
     // if not acreage/containment, then idk???
     
     recent_items.slice(0, limit).map((d) => {
+      // i am not 100% sure this is effective if it's a big fire season
+      // ie too many updates for fires inthe feed rather than multiple 
+      // updates for a fire 
+      var color = '#439FE0';
+      if (update_counts[d.title] > 1 && update_counts[d.title] <= 3) {
+        color = 'warning';
+      } else if (update_counts[d.title] > 3) {
+        color = 'danger';
+      }
+      
       attachments.push({
         "fallback": d.title,
         "title_link": d.link,
         "title": d.title,
         "ts": moment(d.published).unix(), // to epoch timestamp for slack
-        "fields": _parse_description(d.content)
+        "fields": _parse_description(d.content),
+        "color" : color
       });
     });
     
